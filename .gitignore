@@ -1,0 +1,10 @@
+# Editor generated
+.cache/
+.idea/
+.vscode/
+.zed/
+
+# Build generated
+build/
+*.img
+*.temp
