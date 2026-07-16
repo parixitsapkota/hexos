@@ -13,7 +13,6 @@ DATA_SEGMENT64    equ 30h
 CODE_SEGMENT64    equ 28h
 
 kernel_load_vadr  equ 0xFFFFFFFF80100000
-; kernel_load_vadr  equ 0x00100000
 
 ; Functions
 extern bmain
@@ -233,7 +232,7 @@ EnableA20:
   
   call A20WaitInput
   pop eax
-  or al, 2                                    ; bit 2 = A20 bit
+  or al, 2  ; bit 2 = A20 bit
   out KbdControllerDataPort, al
 
   ; enable keyboard
@@ -279,10 +278,12 @@ wait_key_and_reboot:
 section .data
 mode_info_buffer: times 256 db 0
 
+; Global variables for paging
 g_M:           dd 0
 
 saved_esp:     dd 0
 
+; Global variables for VESA framebuffer information
 g_framebuffer: dd 0
 g_pitch:       dw 0
 g_width:       dw 0

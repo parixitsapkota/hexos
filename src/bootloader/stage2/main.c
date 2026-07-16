@@ -6,7 +6,7 @@
 #include "paging.h"
 
 extern void setup_vesa16(void);
-extern void _PAGING(void);
+extern void switch64(void);
 extern void pmode64_kernel(BootInfo *info);
 
 static volatile u8 *kernel_load_adr = (volatile u8 *)0x00100000;
@@ -58,7 +58,7 @@ void bmain(void) {
     init_paging();
     setup_paging();
     bprintf("Loading Kernel64.\n", search_file);
-    _PAGING();
+    switch64();
   } else {
     bprintf("Error: File not found. '%s'\n", search_file);
   }
