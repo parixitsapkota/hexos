@@ -30,10 +30,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <int.h>
-#include <stdbool.h>
-
-#include "printf.h"
+#include "flib.h"
+#include "bprintf.h"
 
 // define this globally (e.g. gcc -DPRINTF_INCLUDE_CONFIG_H ...) to include the
 // printf_config.h header file
@@ -115,7 +113,7 @@
 #endif
 
 // output function type
-typedef void (*out_fct_type)(char character, void *buffer, u64 idx, u64 maxlen);
+typedef void (*out_fct_type)(char character, void *buffer, size_t idx, size_t maxlen);
 
 // wrapper (used as buffer) for output function type
 typedef struct {
@@ -124,14 +122,14 @@ typedef struct {
 } out_fct_wrap_type;
 
 // internal buffer output
-static inline void _out_buffer(char character, void *buffer, u64 idx, u64 maxlen) {
+static inline void _out_buffer(char character, void *buffer, size_t idx, size_t maxlen) {
   if (idx < maxlen) {
     ((char *)buffer)[idx] = character;
   }
 }
 
 // internal null output
-static inline void _out_null(char character, void *buffer, u64 idx, u64 maxlen) {
+static inline void _out_null(char character, void *buffer, size_t idx, size_t maxlen) {
   (void)character;
   (void)buffer;
   (void)idx;
@@ -139,17 +137,17 @@ static inline void _out_null(char character, void *buffer, u64 idx, u64 maxlen) 
 }
 
 // internal _putchar wrapper
-static inline void _out_char(char character, void *buffer, u64 idx, u64 maxlen) {
+static inline void _out_char(char character, void *buffer, size_t idx, size_t maxlen) {
   (void)buffer;
   (void)idx;
   (void)maxlen;
   if (character) {
-    _putchar(character);
+    bputc(character);
   }
 }
 
 // internal output function wrapper
-static inline void _out_fct(char character, void *buffer, u64 idx, u64 maxlen) {
+static inline void _out_fct(char character, void *buffer, size_t idx, size_t maxlen) {
   (void)idx;
   (void)maxlen;
   if (character) {
@@ -160,7 +158,7 @@ static inline void _out_fct(char character, void *buffer, u64 idx, u64 maxlen) {
 
 // internal secure strlen
 // \return The length of the string (excluding the terminating 0) limited by 'maxsize'
-static inline unsigned int _strnlen_s(const char *str, u64 maxsize) {
+static inline unsigned int _strnlen_s(const char *str, size_t maxsize) {
   const char *s;
   for (s = str; *s && maxsize--; ++s)
     ;
@@ -169,7 +167,7 @@ static inline unsigned int _strnlen_s(const char *str, u64 maxsize) {
 
 // internal test if char is a digit (0-9)
 // \return true if char is a digit
-static inline bool _is_digit(char ch) { return (ch >= '0') && (ch <= '9'); }
+static inline uint8_t _is_digit(char ch) { return (ch >= '0') && (ch <= '9'); }
 
 // internal ASCII string to unsigned int conversion
 static unsigned int _atoi(const char **str) {
@@ -181,13 +179,13 @@ static unsigned int _atoi(const char **str) {
 }
 
 // output the specified string in reverse, taking care of any zero-padding
-static u64 _out_rev(out_fct_type out, char *buffer, u64 idx, u64 maxlen, const char *buf, u64 len,
-                    unsigned int width, unsigned int flags) {
-  const u64 start_idx = idx;
+static size_t _out_rev(out_fct_type out, char *buffer, size_t idx, size_t maxlen, const char *buf,
+                       size_t len, unsigned int width, unsigned int flags) {
+  const size_t start_idx = idx;
 
   // pad spaces up to given width
   if (!(flags & FLAGS_LEFT) && !(flags & FLAGS_ZEROPAD)) {
-    for (u64 i = len; i < width; i++) {
+    for (size_t i = len; i < width; i++) {
       out(' ', buffer, idx++, maxlen);
     }
   }
@@ -208,9 +206,9 @@ static u64 _out_rev(out_fct_type out, char *buffer, u64 idx, u64 maxlen, const c
 }
 
 // internal itoa format
-static u64 _ntoa_format(out_fct_type out, char *buffer, u64 idx, u64 maxlen, char *buf, u64 len,
-                        bool negative, unsigned int base, unsigned int prec, unsigned int width,
-                        unsigned int flags) {
+static size_t _ntoa_format(out_fct_type out, char *buffer, size_t idx, size_t maxlen, char *buf,
+                           size_t len, uint8_t negative, unsigned int base, unsigned int prec,
+                           unsigned int width, unsigned int flags) {
   // pad leading zeros
   if (!(flags & FLAGS_LEFT)) {
     if (width && (flags & FLAGS_ZEROPAD) && (negative || (flags & (FLAGS_PLUS | FLAGS_SPACE)))) {
@@ -258,11 +256,11 @@ static u64 _ntoa_format(out_fct_type out, char *buffer, u64 idx, u64 maxlen, cha
 }
 
 // internal itoa for 'long' type
-static u64 _ntoa_long(out_fct_type out, char *buffer, u64 idx, u64 maxlen, unsigned long value,
-                      bool negative, unsigned long base, unsigned int prec, unsigned int width,
-                      unsigned int flags) {
+static size_t _ntoa_long(out_fct_type out, char *buffer, size_t idx, size_t maxlen,
+                         unsigned long value, uint8_t negative, unsigned long base, unsigned int prec,
+                         unsigned int width, unsigned int flags) {
   char buf[PRINTF_NTOA_BUFFER_SIZE];
-  u64 len = 0U;
+  size_t len = 0U;
 
   // no hash for 0 values
   if (!value) {
@@ -284,11 +282,11 @@ static u64 _ntoa_long(out_fct_type out, char *buffer, u64 idx, u64 maxlen, unsig
 
 // internal itoa for 'long long' type
 #if defined(PRINTF_SUPPORT_LONG_LONG)
-static u64 _ntoa_long_long(out_fct_type out, char *buffer, u64 idx, u64 maxlen,
-                           unsigned long long value, bool negative, unsigned long long base,
-                           unsigned int prec, unsigned int width, unsigned int flags) {
+static size_t _ntoa_long_long(out_fct_type out, char *buffer, size_t idx, size_t maxlen,
+                              unsigned long long value, uint8_t negative, unsigned long long base,
+                              unsigned int prec, unsigned int width, unsigned int flags) {
   char buf[PRINTF_NTOA_BUFFER_SIZE];
-  u64 len = 0U;
+  size_t len = 0U;
 
   // no hash for 0 values
   if (!value) {
@@ -313,15 +311,15 @@ static u64 _ntoa_long_long(out_fct_type out, char *buffer, u64 idx, u64 maxlen,
 
 #if defined(PRINTF_SUPPORT_EXPONENTIAL)
 // forward declaration so that _ftoa can switch to exp notation for values > PRINTF_MAX_FLOAT
-static u64 _etoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double value,
-                 unsigned int prec, unsigned int width, unsigned int flags);
+static size_t _etoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, double value,
+                    unsigned int prec, unsigned int width, unsigned int flags);
 #endif
 
 // internal ftoa for fixed decimal floating point
-static u64 _ftoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double value,
-                 unsigned int prec, unsigned int width, unsigned int flags) {
+static size_t _ftoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, double value,
+                    unsigned int prec, unsigned int width, unsigned int flags) {
   char buf[PRINTF_FTOA_BUFFER_SIZE];
-  u64 len = 0U;
+  size_t len = 0U;
   double diff = 0.0;
 
   // powers of 10
@@ -352,7 +350,7 @@ static u64 _ftoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double val
   }
 
   // test for negative
-  bool negative = false;
+  uint8_t negative = false;
   if (value < 0) {
     negative = true;
     value = 0 - value;
@@ -447,15 +445,15 @@ static u64 _ftoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double val
 #if defined(PRINTF_SUPPORT_EXPONENTIAL)
 // internal ftoa variant for exponential floating-point type, contributed by Martijn Jasperse
 // <m.jasperse@gmail.com>
-static u64 _etoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double value,
-                 unsigned int prec, unsigned int width, unsigned int flags) {
+static size_t _etoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, double value,
+                    unsigned int prec, unsigned int width, unsigned int flags) {
   // check for NaN and special values
   if ((value != value) || (value > DBL_MAX) || (value < -DBL_MAX)) {
     return _ftoa(out, buffer, idx, maxlen, value, prec, width, flags);
   }
 
   // determine the sign
-  const bool negative = value < 0;
+  const uint8_t negative = value < 0;
   if (negative) {
     value = -value;
   }
@@ -468,7 +466,7 @@ static u64 _etoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double val
   // determine the decimal exponent
   // based on the algorithm by David Gay (https://www.ampl.com/netlib/fp/dtoa.c)
   union {
-    u64 U;
+    uint64_t U;
     double F;
   } conv;
 
@@ -483,7 +481,7 @@ static u64 _etoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double val
   exp2 = (int)(expval * 3.321928094887362 + 0.5);
   const double z = expval * 2.302585092994046 - exp2 * 0.6931471805599453;
   const double z2 = z * z;
-  conv.U = (u64)(exp2 + 1023) << 52U;
+  conv.U = (uint64_t)(exp2 + 1023) << 52U;
   // compute exp(z) using continued fractions, see
   // https://en.wikipedia.org/wiki/Exponential_function#Continued_fractions_for_ex
   conv.F *= 1 + 2 * z / (2 - z + (z2 / (6 + (z2 / (10 + z2 / 14)))));
@@ -537,7 +535,7 @@ static u64 _etoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double val
   }
 
   // output the floating part
-  const u64 start_idx = idx;
+  const size_t start_idx = idx;
   idx = _ftoa(out, buffer, idx, maxlen, negative ? -value : value, prec, fwidth,
               flags & ~FLAGS_ADAPT_EXP);
 
@@ -561,10 +559,10 @@ static u64 _etoa(out_fct_type out, char *buffer, u64 idx, u64 maxlen, double val
 #endif // PRINTF_SUPPORT_FLOAT
 
 // internal vsnprintf
-static int _vsnprintf(out_fct_type out, char *buffer, const u64 maxlen, const char *format,
+static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const char *format,
                       va_list va) {
   unsigned int flags, width, precision, n;
-  u64 idx = 0U;
+  size_t idx = 0U;
 
   if (!buffer) {
     // use null output function
@@ -670,11 +668,11 @@ static int _vsnprintf(out_fct_type out, char *buffer, const u64 maxlen, const ch
       break;
 #endif
     case 'j':
-      flags |= (sizeof(i64) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
+      flags |= (sizeof(int64_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
       format++;
       break;
     case 'z':
-      flags |= (sizeof(u64) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
+      flags |= (sizeof(size_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
       format++;
       break;
     default: break;
@@ -807,7 +805,7 @@ static int _vsnprintf(out_fct_type out, char *buffer, const u64 maxlen, const ch
 
     case 's': {
       const char *p = va_arg(va, char *);
-      unsigned int l = _strnlen_s(p, precision ? precision : (u64)-1);
+      unsigned int l = _strnlen_s(p, precision ? precision : (size_t)-1);
       // pre padding
       if (flags & FLAGS_PRECISION) {
         l = (l < precision ? l : precision);
@@ -835,13 +833,13 @@ static int _vsnprintf(out_fct_type out, char *buffer, const u64 maxlen, const ch
       width = sizeof(void *) * 2U;
       flags |= FLAGS_ZEROPAD | FLAGS_UPPERCASE;
 #if defined(PRINTF_SUPPORT_LONG_LONG)
-      const bool is_ll = sizeof(u64) == sizeof(long long);
+      const uint8_t is_ll = sizeof(uint64_t) == sizeof(long long);
       if (is_ll) {
-        idx = _ntoa_long_long(out, buffer, idx, maxlen, (u64)va_arg(va, void *), false, 16U,
+        idx = _ntoa_long_long(out, buffer, idx, maxlen, (uint64_t)va_arg(va, void *), false, 16U,
                               precision, width, flags);
       } else {
 #endif
-        idx = _ntoa_long(out, buffer, idx, maxlen, (unsigned long)((u64)va_arg(va, void *)),
+        idx = _ntoa_long(out, buffer, idx, maxlen, (unsigned long)((uint64_t)va_arg(va, void *)),
                          false, 16U, precision, width, flags);
 #if defined(PRINTF_SUPPORT_LONG_LONG)
       }
@@ -875,7 +873,7 @@ int printf_(const char *format, ...) {
   va_list va;
   va_start(va, format);
   char buffer[1];
-  const int ret = _vsnprintf(_out_char, buffer, (u64)-1, format, va);
+  const int ret = _vsnprintf(_out_char, buffer, (size_t)-1, format, va);
   va_end(va);
   return ret;
 }
@@ -883,12 +881,12 @@ int printf_(const char *format, ...) {
 int sprintf_(char *buffer, const char *format, ...) {
   va_list va;
   va_start(va, format);
-  const int ret = _vsnprintf(_out_buffer, buffer, (u64)-1, format, va);
+  const int ret = _vsnprintf(_out_buffer, buffer, (size_t)-1, format, va);
   va_end(va);
   return ret;
 }
 
-int snprintf_(char *buffer, u64 count, const char *format, ...) {
+int snprintf_(char *buffer, size_t count, const char *format, ...) {
   va_list va;
   va_start(va, format);
   const int ret = _vsnprintf(_out_buffer, buffer, count, format, va);
@@ -898,10 +896,10 @@ int snprintf_(char *buffer, u64 count, const char *format, ...) {
 
 int vprintf_(const char *format, va_list va) {
   char buffer[1];
-  return _vsnprintf(_out_char, buffer, (u64)-1, format, va);
+  return _vsnprintf(_out_char, buffer, (size_t)-1, format, va);
 }
 
-int vsnprintf_(char *buffer, u64 count, const char *format, va_list va) {
+int vsnprintf_(char *buffer, size_t count, const char *format, va_list va) {
   return _vsnprintf(_out_buffer, buffer, count, format, va);
 }
 
@@ -909,65 +907,7 @@ int fctprintf(void (*out)(char character, void *arg), void *arg, const char *for
   va_list va;
   va_start(va, format);
   const out_fct_wrap_type out_fct_wrap = {out, arg};
-  const int ret = _vsnprintf(_out_fct, (char *)(u64)&out_fct_wrap, (u64)-1, format, va);
+  const int ret = _vsnprintf(_out_fct, (char *)(uint64_t)&out_fct_wrap, (size_t)-1, format, va);
   va_end(va);
   return ret;
-}
-
-void wordcpy64(void *dest, volatile const void *src, u64 quadwords) {
-  asm volatile("cld;\n"
-               "rep movsq;\n" // 'q' for quadword (8 bytes)
-               : "+D"(dest), "+S"(src), "+c"(quadwords)
-               :
-               : "memory");
-}
-
-#define TTY_WIDTH 80
-#define TTY_HEIGHT 25
-
-u8 g_tty_color = 0x0F;
-volatile u16 *g_textbuffer = (volatile u16 *)0xB8000;
-
-void _putchar(u8 c) {
-  static u16 c_col = 0;
-  static u16 c_line = 0;
-
-  if (c == '\n') {
-    c_col = 0;
-    c_line++;
-    goto check_scroll;
-  }
-
-  if (c == '\r') {
-    c_col = 0;
-    return;
-  }
-
-  u16 c_index = (c_line * TTY_WIDTH) + c_col;
-  g_textbuffer[c_index] = (u16)c | ((u16)g_tty_color << 8);
-
-  c_col++;
-  if (c_col >= TTY_WIDTH) {
-    c_col = 0;
-    c_line++;
-  }
-
-check_scroll:
-  if (c_line >= TTY_HEIGHT) {
-    u32 total_cells_to_move = (TTY_HEIGHT - 1) * TTY_WIDTH;
-    wordcpy64((void *)g_textbuffer, (volatile const void *)(g_textbuffer + TTY_WIDTH),
-              total_cells_to_move / 2);
-
-    u16 blank_char = (u16)' ' | ((u16)g_tty_color << 8);
-
-    u32 blank_doubleword = ((u32)blank_char << 16) | blank_char;
-    u16 last_line_start = (TTY_HEIGHT - 1) * TTY_WIDTH;
-
-    volatile u32 *last_line_ptr = (volatile u32 *)(g_textbuffer + last_line_start);
-    for (u16 x = 0; x < TTY_WIDTH / 2; x++) {
-      last_line_ptr[x] = blank_doubleword;
-    }
-
-    c_line = TTY_HEIGHT - 1;
-  }
 }

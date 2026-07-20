@@ -1,24 +1,29 @@
 #ifndef _FLIB_H_
 #define _FLIB_H_
 
-#include <int.h>
+#include <stdint.h>
 
 #define TTY_WIDTH 80
 #define TTY_HEIGHT 25
 
-extern u8 *g_mem;
+#undef NULL
+#define NULL ((void *)0)
 
-void bputc(u8 c);
-void bprintf(const char *format, ...);
+#define true 1
+#define false 0
 
-void *fmemset(void *s, int c, u64 n);
-void wordcpy32(void *dest, volatile const void *src, u32 words);
-int fmemcmp(const void *s1, const void *s2, u64 n);
+extern uint8_t *g_mem;
+
+void bputc(char c);
+
+void *fmemset(void *s, int c, uint64_t n);
+void wordcpy32(void *dest, volatile const void *src, uint32_t words);
+int fmemcmp(const void *s1, const void *s2, uint64_t n);
 
 char *strchr(const char *s, int c);
-int toupper(u8 c);
+int toupper(uint8_t c);
 
-void *falloc(u64 bytes);
+void *falloc(uint64_t bytes);
 void ffree(void *memory);
 
 #endif // _FLIB_H_

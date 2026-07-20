@@ -31,7 +31,7 @@ export BUILD_DIR
 export DISK
 
 # --- Sub-Dirs ---
-SUBDIRS := src/bootloader src/kernel
+SUBDIRS := src/bootloader
 
 # --- Sub-Dir paths ---
 BOOT512_BIN := $(BUILD_DIR)/boot512.bin
@@ -61,7 +61,7 @@ $(DISK): all
 	@printf "n\np\n1\n2048\n\nt\nc\na\nw\n" | fdisk $(DISK) > /dev/null 2>&1
 	@echo "drive p: file=\"$(DISK)\" offset=1048576" > .temp
 	@MTOOLSRC=.temp mformat -F -v "BOOT32" p:
-	@MTOOLSRC=.temp mcopy $(KERNEL_BIN) p:
+# 	@MTOOLSRC=.temp mcopy $(KERNEL_BIN) p:
 	@rm .temp
 
 run: $(DISK)

@@ -3,6 +3,5 @@
 
 void init_paging(void);
 void setup_paging(void);
-void load_paging(void);
 
 #endif // _PAGING_H_
