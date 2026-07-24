@@ -53,7 +53,7 @@ clear_screen:
   int 10h
   ret
 
-warinig_msg: db 'Retry booting with UEFI mode...', ENDL, 0
+warinig_msg: db 'Warning hexos requires UEFI mode...', ENDL, 'Retry booting with UEFI mode...', ENDL, 0
 
 times 510-($-$$) db 0
 dw 0xAA55

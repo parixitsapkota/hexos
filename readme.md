@@ -8,8 +8,9 @@ HexOs is a minimal, experimental x86 operating system built from scratch for lea
 
 To compile and emulate HexOs, ensure your host machine has the following packages installed:
 
-* **Compiler, Linker & Build Automation:** `clang`, `lld` (LLVM Linker), `clang-format`, `llvm-objcopy`, `make`
+* **Compiler, Linker & Build Automation:** `clang`, `lld` (LLVM Linker), `llvm-objcopy`, `make`
 * **Image creation & Emulation:** `dd`, `fdisk`, `gptfdisk`, `mtools`, `qemu-system-x86_64`, `ovmf`
+* **Optional:** `clang-format`
 
 ---
 

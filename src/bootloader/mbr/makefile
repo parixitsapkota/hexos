@@ -10,5 +10,5 @@ prepare:
 
 # Build Legacy MBR Bootloader
 $(BOOT512_BIN): boot512.asm
-	@echo "[+] $(COLOR_GREEN)Compiling $<...$(COLOR_RESET)"
-	@nasm -f bin $< -o $@
+	@echo "[+] $(COLOR_GREEN)Assembling $<...$(COLOR_RESET)"
+	@$(ACC) -f bin $< -o $@

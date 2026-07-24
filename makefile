@@ -16,38 +16,46 @@ BOOT512_BIN := $(ARTIFACTS)/boot512.bin
 UEFI_APP    := $(ARTIFACTS)/BOOTX64.EFI
 
 # --- Config ---
-CC          := clang
-CFLAGS      := -ffreestanding -fno-pic -fno-asynchronous-unwind-tables -nostdlib \
-               -I$(ROOT_DIR)/src/include -Wall -Wextra -Werror -O3
-CFLAGS32    := $(CFLAGS) -target i386-pc-none-elf -m32 -march=i386
-CFLAGS64    := $(CFLAGS) -target x86_64-pc-none-elf -m64 -march=x86-64 -mcmodel=kernel -mno-red-zone
+ACC      := nasm
+CC       := clang
+CFLAGS   := -ffreestanding -fno-pic -fno-asynchronous-unwind-tables -nostdlib \
+						-I$(ROOT_DIR)/src/include -Wall -Wextra -Werror -O3
+CFLAGS32 := $(CFLAGS) -target i386-pc-none-elf -m32 -march=i386
+CFLAGS64 := $(CFLAGS) -target x86_64-pc-none-elf -m64 -march=x86-64 -mcmodel=kernel -mno-red-zone
 
-export CC CFLAGS32 CFLAGS64 ARTIFACTS
+export ACC CC CFLAGS32 CFLAGS64 ARTIFACTS
 
 # --- Sub-Dirs ---
 SUBDIRS := src/bootloader
 
-# --- Primary Targets ---
-all: build_components $(DISK)
-	@echo "$(COLOR_RED)[#] Build complete!$(COLOR_RESET)"
+REQUIRED_TOOLS := clang lld llvm-objcopy dd fdisk sfdisk mtools qemu-system-x86_64
+# Validate dependencies globally at parse-time
+$(foreach tool,$(REQUIRED_TOOLS),\
+    $(if $(shell command -v $(tool) 2>/dev/null),,\
+        $(error "Missing dependency: '$(tool)' is not installed or not in PATH")))
 
-build_components:
+# --- Primary Targets ---
+all: prepare_build
 	@echo "$(COLOR_YELLOW)[#] Building component: $(SUBDIRS)$(COLOR_RESET)"
 	@$(MAKE) --no-print-directory -C $(SUBDIRS)
+	@echo "$(COLOR_RED)[#] Build complete!$(COLOR_RESET)"
 
 prepare_build:
 	@mkdir -p $(ARTIFACTS)
+
+disk: all $(DISK)
+	@echo "$(COLOR_RED)[+] Created disk image...$(COLOR_RESET)"
 
 $(DISK): $(BOOT512_BIN) $(UEFI_APP)
 	@echo "[+] $(COLOR_GREEN)Creating raw disk image...$(COLOR_RESET)"
 	@dd if=/dev/zero of=$(DISK) bs=512 count=90001 status=none
 
+	@echo "[+] $(COLOR_GREEN)Injecting Legacy MBR bootloader...$(COLOR_RESET)"
+	@dd if=$(BOOT512_BIN) of=$(DISK) bs=512 count=1 conv=notrunc status=none
+
 	@echo "[+] $(COLOR_GREEN)Partitioning disk (MBR / EFI System)...$(COLOR_RESET)"
 	@echo 'label: dos' | sfdisk $(DISK) > /dev/null 2>&1
 	@echo '2048,,ef,*' | sfdisk --append $(DISK) > /dev/null 2>&1
-
-	@echo "[+] $(COLOR_GREEN)Injecting Legacy MBR bootloader...$(COLOR_RESET)"
-	@dd if=$(BOOT512_BIN) of=$(DISK) bs=446 count=1 conv=notrunc status=none
 
 	@echo "[+] $(COLOR_GREEN)Formatting partition via loop device...$(COLOR_RESET)"
 	@set -e; \
@@ -59,17 +67,20 @@ $(DISK): $(BOOT512_BIN) $(UEFI_APP)
 	sudo mkfs.vfat -F 32 -n "HEXBOOT" $${LOOP_DEV}p1 > /dev/null; \
 	sudo mount $${LOOP_DEV}p1 $$MNT_DIR; \
 	sudo mkdir -p $$MNT_DIR/EFI/BOOT; \
-	sudo cp $(UEFI_APP) $$MNT_DIR/EFI/BOOT/BOOTX64.EFI
+	sudo cp $(UEFI_APP) $$MNT_DIR/EFI/BOOT/BOOTX64.EFI; \
+	sudo cp license $$MNT_DIR/EFI/BOOT/license
 
-run: all
+run: disk
 	@echo "$(COLOR_YELLOW)[!] Starting QEMU (UEFI)...$(COLOR_RESET)"
 	@mkdir -p $(ARTIFACTS)/qemu
 	@qemu-system-x86_64 -machine q35 -m 1G \
 		-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/x64/OVMF_CODE.fd \
-		-drive file=$(DISK),format=raw
+		-drive file=$(DISK),format=raw -net none
 
 clean:
 	@echo "$(COLOR_YELLOW)[#] Cleaning global build artifacts...$(COLOR_RESET)"
 	@rm -rf $(ARTIFACTS)/*
+
+dependency:
 
 .PHONY: all build_components prepare_build run clean
